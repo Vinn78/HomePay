@@ -40,10 +40,11 @@ export const Profile: React.FC = () => {
     setLoading(true);
     try {
       await updateProfile({
-        name: editForm.name,
-        phone: editForm.phone,
-        upiId: editForm.upiId,
-      });
+  name: editForm.name,
+  displayName: editForm.name, // ✅ ADD THIS LINE
+  phone: editForm.phone,
+  upiId: editForm.upiId,
+});
       setActiveModal(null);
     } catch (err) {
       console.error('Error updating account:', err);

@@ -81,26 +81,25 @@
     }, []);
 
   const updateProfile = async (data: Partial<UserProfile>) => {
-    if (!user) return;
+  if (!user) return;
 
-    try {
-      const userRef = doc(db, 'users', user.uid);
+  try {
+    const userRef = doc(db, 'users', user.uid);
 
-      await setDoc(
-        userRef,
-        {
-          ...profile,        // ✅ keep existing data
-          ...data,           // ✅ overwrite updated fields
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
+    await setDoc(
+      userRef,
+      {
+        ...data, // ✅ ONLY send updated fields
+        updatedAt: serverTimestamp(),
+      },  
+      { merge: true }
+    );
 
-    } catch (err) {
-      console.error('Error updating profile:', err);
-      throw err;
-    }
-  };
+  } catch (err) {
+    console.error('Error updating profile:', err);
+    throw err;
+  }
+};
 
     return (
       <AuthContext.Provider value={{ user, profile, loading, error, updateProfile }}>
