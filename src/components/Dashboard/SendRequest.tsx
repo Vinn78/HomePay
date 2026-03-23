@@ -15,7 +15,7 @@ enum OperationType {
   UPDATE = 'update',
   DELETE = 'delete',
   LIST = 'list',
-  GET = 'get',
+  GET = 'get',  
   WRITE = 'write',
 }
 
@@ -120,13 +120,31 @@ export const SendRequest: React.FC = () => {
 
       // Send in-app notification
       const isImmediate = priority === 'IMMEDIATE';
-      await sendInAppNotification(
-        trimmedEmail.toLowerCase().trim(),
-        `${isImmediate ? 'IMMEDIATE: ' : ''}New Payment Request`,
-        `${profile?.name || user?.email} requested ₹${amount} from you. Priority: ${priority.toUpperCase()}`,
-        isImmediate
-      );
 
+const title = `${isImmediate ? 'IMMEDIATE: ' : ''}New Payment Request`;
+const message = `${profile?.name || user?.email} requested ₹${amount} from you. Priority: ${priority.toUpperCase()}`;
+
+if (isImmediate) {
+  // 🔥 Notify ALL contacts
+  await Promise.all(
+    contacts.map(contact =>
+      sendInAppNotification(
+        contact.email.toLowerCase().trim(),
+        title,
+        message,
+        true
+      )
+    )
+  );
+} else {
+  // ✅ Notify only selected user
+  await sendInAppNotification(
+    trimmedEmail,
+    title,
+    message,
+    false
+  );
+}
       setSuccess(true);
       setTimeout(() => navigate('/requests'), 2000);
     } catch (err) {
