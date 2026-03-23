@@ -9,7 +9,6 @@ const __dirname = path.dirname(__filename);
 async function startServer() {
   const app = express();
 
-  // API routes
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
   });
@@ -22,8 +21,15 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
+
+    // ✅ serve static files FIRST
     app.use(express.static(distPath));
-    app.get("*", (req, res) => {
+
+    // ✅ only fallback for non-file routes
+    app.get("*", (req, res, next) => {
+      if (req.path.includes(".")) {
+        return next(); // let static handle files
+      }
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
@@ -35,5 +41,4 @@ async function startServer() {
   });
 }
 
-// ✅ ONLY THIS LINE AT THE END
 startServer();
