@@ -40,7 +40,7 @@ export const Profile: React.FC = () => {
     setLoading(true);
     try {
       await updateProfile({
-        displayName: editForm.name,
+        name: editForm.name,
         phone: editForm.phone,
         upiId: editForm.upiId,
       });
