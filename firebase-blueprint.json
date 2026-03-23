@@ -1,0 +1,87 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user profile in the system.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The unique ID of the user." },
+        "name": { "type": "string", "description": "The full name of the user." },
+        "email": { "type": "string", "description": "The email address of the user.", "format": "email" },
+        "phone": { "type": "string", "description": "The phone number of the user." },
+        "upiId": { "type": "string", "description": "The UPI ID of the user." },
+        "fcmToken": { "type": "string", "description": "The FCM token for push notifications." },
+        "visibility": { "type": "boolean", "description": "Whether the user is searchable by email." },
+        "twoFactorAuth": { "type": "boolean", "description": "Whether 2FA is enabled." },
+        "biometricLock": { "type": "boolean", "description": "Whether biometric lock is enabled." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the profile was created." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "When the profile was last updated." }
+      },
+      "required": ["uid", "name", "email"]
+    },
+    "PaymentRequest": {
+      "title": "PaymentRequest",
+      "description": "A request for money sent from one user to another.",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string", "description": "The UID of the sender." },
+        "senderName": { "type": "string", "description": "The name of the sender." },
+        "senderEmail": { "type": "string", "description": "The email of the sender.", "format": "email" },
+        "senderUpiId": { "type": "string", "description": "The UPI ID of the sender." },
+        "recipientEmail": { "type": "string", "description": "The email of the recipient.", "format": "email" },
+        "amount": { "type": "number", "description": "The amount requested." },
+        "note": { "type": "string", "description": "An optional note for the request." },
+        "status": { "type": "string", "enum": ["pending", "accepted", "rejected", "paid"], "description": "The current status of the request." },
+        "priority": { "type": "string", "enum": ["low", "medium", "high", "IMMEDIATE"], "description": "The priority of the request." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the request was created." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "When the request was last updated." }
+      },
+      "required": ["senderId", "senderName", "senderEmail", "recipientEmail", "amount", "status", "priority"]
+    },
+    "Contact": {
+      "title": "Contact",
+      "description": "A saved contact for a user.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "The name of the contact." },
+        "email": { "type": "string", "description": "The email of the contact.", "format": "email" },
+        "upiId": { "type": "string", "description": "The UPI ID of the contact." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the contact was added." }
+      },
+      "required": ["name", "email"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "An in-app notification for a user.",
+      "type": "object",
+      "properties": {
+        "recipientEmail": { "type": "string", "description": "The email of the recipient.", "format": "email" },
+        "isGlobal": { "type": "boolean", "description": "Whether the notification is for all users." },
+        "readBy": { "type": "array", "items": { "type": "string" }, "description": "List of user UIDs who have read this global notification." },
+        "title": { "type": "string", "description": "The title of the notification." },
+        "message": { "type": "string", "description": "The body of the notification." },
+        "read": { "type": "boolean", "description": "Whether the notification has been read." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the notification was created." }
+      },
+      "required": ["title", "message", "read"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "The collection of user profiles."
+    },
+    "/paymentRequests/{requestId}": {
+      "schema": "PaymentRequest",
+      "description": "The collection of payment requests."
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "The collection of in-app notifications."
+    },
+    "/users/{userId}/contacts/{contactId}": {
+      "schema": "Contact",
+      "description": "The subcollection of contacts for a user."
+    }
+  }
+}

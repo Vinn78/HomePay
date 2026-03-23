@@ -1,0 +1,168 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId (UID)
+    // Fields:
+    //   - uid: string (required)
+    //   - name: string (required)
+    //   - email: string (required)
+    //   - phone: string (optional)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: paymentRequests
+    // Document ID: requestId (auto-generated)
+    // Fields:
+    //   - senderId: string (required)
+    //   - senderName: string (required)
+    //   - recipientEmail: string (required)
+    //   - amount: number (required)
+    //   - note: string (optional)
+    //   - status: string (required, enum: pending, accepted, rejected, paid)
+    //   - createdAt: timestamp (required)
+    //   - updatedAt: timestamp (required)
+    //
+    // Collection: notifications
+    // Document ID: notificationId (auto-generated)
+    // Fields:
+    //   - recipientEmail: string (required)
+    //   - title: string (required)
+    //   - message: string (required)
+    //   - read: bool (required)
+    //   - createdAt: timestamp (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isEmail(email) {
+      return email is string && request.auth.token.email != null && (email.lower() == request.auth.token.email.lower());
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[^@]+@[^@]+\\.[^@]+$");
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    function isValidUser(data) {
+      return data.uid is string && data.uid == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.email is string && isValidEmail(data.email) &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() < 20)) &&
+             (!('upiId' in data) || (data.upiId is string && data.upiId.size() < 50)) &&
+             (!('fcmToken' in data) || (data.fcmToken is string && data.fcmToken.size() < 300)) &&
+             (!('visibility' in data) || data.visibility is bool) &&
+             (!('twoFactorAuth' in data) || data.twoFactorAuth is bool) &&
+             (!('biometricLock' in data) || data.biometricLock is bool) &&
+             data.createdAt is timestamp &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    function isValidNotification(data) {
+      return (!('recipientEmail' in data) || (data.recipientEmail is string && isValidEmail(data.recipientEmail))) &&
+             (!('isGlobal' in data) || data.isGlobal is bool) &&
+             (!('readBy' in data) || data.readBy is list) &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 100 &&
+             data.message is string && data.message.size() > 0 && data.message.size() < 500 &&
+             data.read is bool &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidPaymentRequest(data) {
+      return data.senderId is string && data.senderId == request.auth.uid &&
+             data.senderName is string && data.senderName.size() > 0 && data.senderName.size() < 100 &&
+             data.senderEmail is string && (data.senderEmail == request.auth.token.email || isValidEmail(data.senderEmail)) &&
+             (!('senderUpiId' in data) || (data.senderUpiId is string && data.senderUpiId.size() < 100)) &&
+             data.recipientEmail is string && isValidEmail(data.recipientEmail) &&
+             data.amount is number && data.amount > 0 &&
+             (!('note' in data) || (data.note is string && data.note.size() < 1000)) &&
+             data.status in ['pending', 'accepted', 'rejected', 'paid'] &&
+             data.priority in ['low', 'medium', 'high', 'IMMEDIATE'] &&
+             (data.createdAt is timestamp || data.createdAt == request.time) &&
+             (data.updatedAt is timestamp || data.updatedAt == request.time);
+    }
+
+    // ===============================================================
+    // Match Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && hasOnlyAllowedFields(['uid', 'name', 'email', 'phone', 'upiId', 'fcmToken', 'visibility', 'twoFactorAuth', 'biometricLock', 'createdAt', 'updatedAt']);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && hasOnlyAllowedFields(['uid', 'name', 'email', 'phone', 'upiId', 'fcmToken', 'visibility', 'twoFactorAuth', 'biometricLock', 'createdAt', 'updatedAt']);
+    }
+
+    match /paymentRequests/{requestId} {
+      // Users can read requests they sent or received (by email)
+      allow read: if isAuthenticated() && (
+        resource.data.senderId == request.auth.uid ||
+        isEmail(resource.data.recipientEmail)
+      );
+
+      allow create: if isAuthenticated() && isValidPaymentRequest(request.resource.data) && hasOnlyAllowedFields(['senderId', 'senderName', 'senderEmail', 'senderUpiId', 'recipientEmail', 'amount', 'note', 'status', 'priority', 'createdAt', 'updatedAt']);
+
+      allow update: if isAuthenticated() && (
+        // Sender can update status (e.g. cancel) or recipient can update status (accept/reject/pay)
+        (resource.data.senderId == request.auth.uid || isEmail(resource.data.recipientEmail)) &&
+        // Ensure core fields don't change
+        request.resource.data.senderId == resource.data.senderId &&
+        request.resource.data.senderEmail == resource.data.senderEmail &&
+        request.resource.data.amount == resource.data.amount &&
+        request.resource.data.recipientEmail == resource.data.recipientEmail &&
+        // Validate new status and metadata
+        request.resource.data.status in ['pending', 'accepted', 'rejected', 'paid'] &&
+        request.resource.data.priority == resource.data.priority &&
+        request.resource.data.updatedAt is timestamp &&
+        // Ensure other fields don't change if not owner
+        (isOwner(resource.data.senderId) || (
+          request.resource.data.senderName == resource.data.senderName &&
+          (!('senderUpiId' in resource.data) || request.resource.data.senderUpiId == resource.data.senderUpiId) &&
+          (!('note' in resource.data) || request.resource.data.note == resource.data.note) &&
+          request.resource.data.createdAt == resource.data.createdAt
+        ))
+      );
+
+      allow delete: if isAuthenticated() && (
+        resource.data.senderId == request.auth.uid || 
+        isEmail(resource.data.recipientEmail)
+      );
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && (isEmail(resource.data.recipientEmail) || resource.data.isGlobal == true);
+      allow create: if isAuthenticated(); // Anyone can send a notification to anyone
+      allow update: if isAuthenticated() && (
+        isEmail(resource.data.recipientEmail) || 
+        (resource.data.isGlobal == true && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy']))
+      );
+      allow delete: if isAuthenticated() && isEmail(resource.data.recipientEmail);
+    }
+
+    match /users/{userId}/contacts/{contactId} {
+      allow read, write: if isOwner(userId);
+    }
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "name": "HomePay",
+  "description": "A mobile payment request app for sending and receiving money requests with real-time notifications.",
+  "requestFramePermissions": []
+}
