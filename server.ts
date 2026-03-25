@@ -8,7 +8,23 @@ const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
+// 🔥 CACHE CONTROL (ADD THIS)
+app.use((req, res, next) => {
+  // Do NOT cache HTML
+  if (req.url.endsWith(".html")) {
+    res.setHeader("Cache-Control", "no-store");
+  }
 
+  // Cache Vite assets (hashed files)
+  if (req.url.startsWith("/assets/")) {
+    res.setHeader(
+      "Cache-Control",
+      "public, max-age=31536000, immutable"
+    );
+  }
+
+  next();
+});
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
   });
