@@ -36,20 +36,17 @@ app.use((req, res, next) => {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), "dist");
+  const distPath = path.join(process.cwd(), "dist");
 
-    // ✅ serve static files FIRST
-    app.use(express.static(distPath));
+  // 🔥 FIXED STATIC SERVING
+  app.use("/assets", express.static(path.join(distPath, "assets")));
+  app.use(express.static(distPath));
 
-    // ✅ only fallback for non-file routes
-    app.get("*", (req, res, next) => {
-      if (req.path.includes(".")) {
-        return next(); // let static handle files
-      }
-      res.sendFile(path.join(distPath, "index.html"));
-    });
-  }
-
+  // 🔥 SPA fallback
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(distPath, "index.html"));
+  });
+}
   const PORT = Number(process.env.PORT) || 3000;
 
   app.listen(PORT, "0.0.0.0", () => {
